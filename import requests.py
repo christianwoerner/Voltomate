@@ -134,12 +134,13 @@ tts.save('hello.mp3')
 import urllib
 import openai
 import time
-#%%
-openai.api_key = "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"
+#openai.api_key = "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"
+openai.api_key = "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"
+
 openai.organization = "org-9kOJ7yh966xJKuo7UXKVfVzn"
 openai.Model.list()
 
-title = "Van Gogh style TIL that the iconic Rosa Parks bus photo was staged by the UPI after her victory in the Supreme Court."
+title = "Monet style picture of success"
 
 response = openai.Image.create(
   prompt=title,
@@ -148,12 +149,54 @@ response = openai.Image.create(
 )
 image_url = response['data'][0]['url']
 
-urllib.request.urlretrieve(image_url, str(time.strftime("%Y%m%d_%H%M%S"))+".jpg")
-
-# %%
-print(image_url)
-# %%
-
+urllib.request.urlretrieve(image_url, str(time.strftime("%Y%m%d_%H%M%S"))+".png")
 
 
 # %%
+
+from moviepy.editor import *
+from moviepy.config import change_settings
+import time 
+change_settings({"IMAGEMAGICK_BINARY": r"C:\\Program Files\\ImageMagick-7.1.0-Q16-HDRI\\magick.exe"})
+
+# Load the audio file using moviepy
+print("Extract voiceover and get duration...")
+audio_clip = AudioFileClip(f"test2.mp3")
+audio_duration = audio_clip.duration
+
+# Load the image file using moviepy
+print("Extract Image Clip and Set Duration...")
+
+
+image_clip = ImageClip("20230204_234716.png").set_duration(audio_duration)
+
+
+# Use moviepy to create a text clip from the text
+print("Customize The Text Clip...")
+text_clip = TextClip("yeet", fontsize=50, color="white")
+print("here")
+
+text_clip = text_clip.set_pos('center').set_duration(audio_duration)
+# Use moviepy to create a final video by concatenating
+# the audio, image, and text clips
+print("Concatenate Audio, Image, Text to Create Final Clip...")
+clip = image_clip.set_audio(audio_clip)
+print(clip)
+print(text_clip)
+
+video = CompositeVideoClip([clip, text_clip])
+# video = CompositeVideoClip([clip, text_clip.set_pos(('center', 'bottom'))])
+#final_clip = concatenate_videoclips([clip,clip], method="compose")
+
+
+# Save the final video to a file
+video = video.write_videofile(str(time.strftime("%Y%m%d_%H%M%S"))+"vid.mp4", fps=24)
+print(f"The Video Has Been Created Successfully!")
+
+#%%
+# from PIL import Image
+# formatter = {"PNG": "RGBA", "JPEG": "RGB"}
+# img = Image.open("20230204_172158.png")
+# rgbimg = Image.new(formatter.get(img.format, 'RGB'), img.size)
+# rgbimg.paste(img)
+# rgbimg.save("20230204_172158_edited.png", format=img.format)
