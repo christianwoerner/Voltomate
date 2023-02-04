@@ -24,7 +24,7 @@ class reddit_grabber():
         self.result = res.json()
 
     def save_content_as_mp3_file(self,title):
-        print("WAT")
+        self.title = title        
         engine = pyttsx3.init()
         voices = engine.getProperty('voices')       #getting details of current voice
         engine.setProperty('voice', voices[1].id)   #changing index, changes voices. 1 for female
@@ -36,44 +36,124 @@ reddit_content = reddit_grabber()
 print(reddit_content.token)
 reddit_content.get_content_for_subreddit('TodayILearned')
 
-reddit_content.save_content_as_mp3_file(reddit_content.result['data']['children'][4]['data']['title'])
-
-# engine = pyttsx3.init()
-# speakthis = reddit_content.result['data']['children'][0]['data']['title']
-# engine.save_to_file(speakthis, 'test.mp3')
-# engine.runAndWait()
+reddit_content.save_content_as_mp3_file(reddit_content.result['data']['children'][12]['data']['title'])
 
 #%%
-# add authorization to our HEADERS dictionary
 
-engine = pyttsx3.init()
-voices = engine.getProperty('voices')       #getting details of current voice
-engine.setProperty('voice', voices[1].id)   #changing index, changes voices. 1 for female
+regex_pattern = r"[,.]"
+import re
+print(re.split(regex_pattern, reddit_content.title)[0])
 
 
-for post in res.json()['data']['children']:
-    print(post['data']['title'])
-    speakthis = post['data']['title']
-    engine.say(speakthis)
-    engine.save_to_file(speakthis, 'test.mp3')
 
-    engine.runAndWait()
-# %%
-# %%
+
+
+
+
+
+
+
+
+
+
+
+
+
 #%%
-engine = pyttsx3.init()
-speakthis = res.json()['data']['children'][0]['data']['title']
-engine.say(speakthis)
-engine.runAndWait()
+import numpy as np
+from moviepy.editor import *
+from moviepy.video.tools.segmenting import findObjects
+
+# WE CREATE THE TEXT THAT IS GOING TO MOVE, WE CENTER IT.
+
+screensize = (720,460)
+txtClip = TextClip('Cool effect',color='white', font="Amiri-Bold",
+                   kerning = 5, fontsize=100)
+cvc = CompositeVideoClip( [txtClip.set_pos('center')],
+                        size=screensize)
+
+# THE NEXT FOUR FUNCTIONS DEFINE FOUR WAYS OF MOVING THE LETTERS
+
+
+# helper function
+rotMatrix = lambda a: np.array( [[np.cos(a),np.sin(a)], 
+                                 [-np.sin(a),np.cos(a)]] )
+
+def vortex(screenpos,i,nletters):
+    d = lambda t : 1.0/(0.3+t**8) #damping
+    a = i*np.pi/ nletters # angle of the movement
+    v = rotMatrix(a).dot([-1,0])
+    if i%2 : v[1] = -v[1]
+    return lambda t: screenpos+400*d(t)*rotMatrix(0.5*d(t)*a).dot(v)
+    
+def cascade(screenpos,i,nletters):
+    v = np.array([0,-1])
+    d = lambda t : 1 if t<0 else abs(np.sinc(t)/(1+t**4))
+    return lambda t: screenpos+v*400*d(t-0.15*i)
+
+def arrive(screenpos,i,nletters):
+    v = np.array([-1,0])
+    d = lambda t : max(0, 3-3*t)
+    return lambda t: screenpos-400*v*d(t-0.2*i)
+    
+def vortexout(screenpos,i,nletters):
+    d = lambda t : max(0,t) #damping
+    a = i*np.pi/ nletters # angle of the movement
+    v = rotMatrix(a).dot([-1,0])
+    if i%2 : v[1] = -v[1]
+    return lambda t: screenpos+400*d(t-0.1*i)*rotMatrix(-0.2*d(t)*a).dot(v)
+
+
+
+# WE USE THE PLUGIN findObjects TO LOCATE AND SEPARATE EACH LETTER
+
+letters = findObjects(cvc) # a list of ImageClips
+
+
+# WE ANIMATE THE LETTERS
+
+def moveLetters(letters, funcpos):
+    return [ letter.set_pos(funcpos(letter.screenpos,i,len(letters)))
+              for i,letter in enumerate(letters)]
+
+clips = [ CompositeVideoClip( moveLetters(letters,funcpos),
+                              size = screensize).subclip(0,5)
+          for funcpos in [vortex, cascade, arrive, vortexout] ]
+
+# WE CONCATENATE EVERYTHING AND WRITE TO A FILE
+
+final_clip = concatenate_videoclips(clips)
+final_clip.write_videofile('coolTextEffects.avi',fps=25,codec='mpeg4')
 
 # %%
-engine.say("test")
-engine.runAndWait()
+from gtts import gTTS
+tts = gTTS('Sweden has the highest rate of automatically created speech texts.')
+tts.save('hello.mp3')
+#%%
+# %%
+import urllib
+import openai
+import time
+#%%
+openai.api_key = "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"
+openai.organization = "org-9kOJ7yh966xJKuo7UXKVfVzn"
+openai.Model.list()
+
+title = "Van Gogh style TIL that the iconic Rosa Parks bus photo was staged by the UPI after her victory in the Supreme Court."
+
+response = openai.Image.create(
+  prompt=title,
+  n=1,
+  size="1024x1024"
+)
+image_url = response['data'][0]['url']
+
+urllib.request.urlretrieve(image_url, str(time.strftime("%Y%m%d_%H%M%S"))+".jpg")
 
 # %%
-voices = engine.getProperty('voices')       #getting details of current voice
-print(voices)
-#engine.setProperty('voice', voices[0].id)  #changing index, changes voices. o for male
-engine.setProperty('voice', voices[1].id)   #changing index, changes voices. 1 for female
+print(image_url)
+# %%
+
+
 
 # %%
