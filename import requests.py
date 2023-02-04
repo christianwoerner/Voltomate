@@ -2,6 +2,10 @@
 import requests
 import requests.auth
 import pyttsx3
+import urllib
+import openai
+import time
+import re
 
 class reddit_grabber():
     def __init__(self):
@@ -24,12 +28,37 @@ class reddit_grabber():
         self.result = res.json()
 
     def save_content_as_mp3_file(self,title):
-        self.title = title        
+        self.title = title 
+        print(title)       
         engine = pyttsx3.init()
         voices = engine.getProperty('voices')       #getting details of current voice
         engine.setProperty('voice', voices[1].id)   #changing index, changes voices. 1 for female
         engine.save_to_file(title, 'test2.mp3')
         engine.runAndWait()
+
+    def get_image_from_dalle(self):
+        self.a = False
+        if self.a == True:
+            #openai.api_key = "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"
+            openai.api_key = "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"
+            openai.api_key = "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"
+            openai.organization = "org-9kOJ7yh966xJKuo7UXKVfVzn"
+            openai.Model.list()
+
+            regex_pattern = r"[,.]"
+            self.prompt_title_part= re.split(regex_pattern, self.title)[0]
+            print('requested for: '+str(self.prompt_title_part))
+
+            response = openai.Image.create(
+            prompt=self.prompt_title_part,
+            n=1,
+            size="1024x1024"
+            )
+            image_url = response['data'][0]['url']
+            self.image_name = str(time.strftime("%Y%m%d_%H%M%S"))+".png"
+            urllib.request.urlretrieve(image_url, self.image_name)
+
+
 
 
 reddit_content = reddit_grabber()
@@ -38,28 +67,114 @@ reddit_content.get_content_for_subreddit('TodayILearned')
 
 reddit_content.save_content_as_mp3_file(reddit_content.result['data']['children'][12]['data']['title'])
 
-#%%
-
-regex_pattern = r"[,.]"
-import re
-print(re.split(regex_pattern, reddit_content.title)[0])
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+# reddit_content.a = True
+reddit_content.get_image_from_dalle()
 
 
 #%%
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#%%
+# %%
+
+
+
+# %%
+
+from moviepy.editor import *
+from moviepy.config import change_settings
+import time 
+from PIL import Image
+
+change_settings({"IMAGEMAGICK_BINARY": r"C:\\Program Files\\ImageMagick-7.1.0-Q16-HDRI\\magick.exe"})
+
+# Load the audio file using moviepy
+print("Extract voiceover and get duration...")
+audio_clip = AudioFileClip(f"test2.mp3")
+audio_duration = audio_clip.duration
+
+filename = "20230204_235944"
+img = Image.open(filename+".png")
+img_cropped = img.crop((224, 0, 800, 1024))
+img_cropped.save(filename+"cropped.png", format=img.format)
+
+# Load the image file using moviepy
+print("Extract Image Clip and Set Duration...")
+image_clip = ImageClip(filename+"cropped.png").set_duration(audio_duration)
+# 576 1024
+
+
+# Use moviepy to create a text clip from the text
+print("Customize The Text Clip...")
+text_clip = TextClip("TIL Bats and dolphins evolved echolocation in the same way (down to the molecular level). An analysis revealed that 200 genes had independently changed in the same way", fontsize=50, color="white")
+print("here")
+
+text_clip = text_clip.set_pos('center').set_duration(audio_duration)
+# Use moviepy to create a final video by concatenating
+# the audio, image, and text clips
+print("Concatenate Audio, Image, Text to Create Final Clip...")
+clip = image_clip.set_audio(audio_clip)
+
+
+text = "TIL Bats and dolphins evolved echolocation in the same way (down to the molecular level). An analysis revealed that 200 genes had independently changed in the same way"
+screensize = (576,1024)
+
+credits = (TextClip(text, color='white',stroke_color= 'black',
+        font="Berlin-Sans-FB-Bold", kerning=-2, interline=-1, size = 
+screensize, method='caption')
+      .set_duration(audio_duration)
+      .set_start(0)
+      )
+
+
+
+video = CompositeVideoClip([clip, credits])
+# video = CompositeVideoClip([clip, text_clip.set_pos(('center', 'bottom'))])
+
+
+# Save the final video to a file
+video = video.write_videofile(str(time.strftime("%Y%m%d_%H%M%S"))+"vid.mp4", fps=24)
+print(f"The Video Has Been Created Successfully!")
+
+#%%
+# from PIL import Image
+# formatter = {"PNG": "RGBA", "JPEG": "RGB"}
+# img = Image.open("20230204_172158.png")
+# rgbimg = Image.new(formatter.get(img.format, 'RGB'), img.size)
+# rgbimg.paste(img)
+# rgbimg.save("20230204_172158_edited.png", format=img.format)
+
+
+
+filename = "20230204_235944"
+img = Image.open(filename+".png")
+img_cropped = img.crop((224, 0, 800, 1024))
+img_cropped.save(filename+"cropped.png", format=img.format)
+img_cropped.show()
+
+# %%
+from moviepy.editor import TextClip
+print ( TextClip.list("font") )
+
+# %%
+#%%
+"""
 import numpy as np
 from moviepy.editor import *
 from moviepy.video.tools.segmenting import findObjects
@@ -124,79 +239,4 @@ clips = [ CompositeVideoClip( moveLetters(letters,funcpos),
 
 final_clip = concatenate_videoclips(clips)
 final_clip.write_videofile('coolTextEffects.avi',fps=25,codec='mpeg4')
-
-# %%
-from gtts import gTTS
-tts = gTTS('Sweden has the highest rate of automatically created speech texts.')
-tts.save('hello.mp3')
-#%%
-# %%
-import urllib
-import openai
-import time
-#openai.api_key = "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"
-openai.api_key = "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"
-
-openai.organization = "org-9kOJ7yh966xJKuo7UXKVfVzn"
-openai.Model.list()
-
-title = "Monet style picture of success"
-
-response = openai.Image.create(
-  prompt=title,
-  n=1,
-  size="1024x1024"
-)
-image_url = response['data'][0]['url']
-
-urllib.request.urlretrieve(image_url, str(time.strftime("%Y%m%d_%H%M%S"))+".png")
-
-
-# %%
-
-from moviepy.editor import *
-from moviepy.config import change_settings
-import time 
-change_settings({"IMAGEMAGICK_BINARY": r"C:\\Program Files\\ImageMagick-7.1.0-Q16-HDRI\\magick.exe"})
-
-# Load the audio file using moviepy
-print("Extract voiceover and get duration...")
-audio_clip = AudioFileClip(f"test2.mp3")
-audio_duration = audio_clip.duration
-
-# Load the image file using moviepy
-print("Extract Image Clip and Set Duration...")
-
-
-image_clip = ImageClip("20230204_234716.png").set_duration(audio_duration)
-
-
-# Use moviepy to create a text clip from the text
-print("Customize The Text Clip...")
-text_clip = TextClip("yeet", fontsize=50, color="white")
-print("here")
-
-text_clip = text_clip.set_pos('center').set_duration(audio_duration)
-# Use moviepy to create a final video by concatenating
-# the audio, image, and text clips
-print("Concatenate Audio, Image, Text to Create Final Clip...")
-clip = image_clip.set_audio(audio_clip)
-print(clip)
-print(text_clip)
-
-video = CompositeVideoClip([clip, text_clip])
-# video = CompositeVideoClip([clip, text_clip.set_pos(('center', 'bottom'))])
-#final_clip = concatenate_videoclips([clip,clip], method="compose")
-
-
-# Save the final video to a file
-video = video.write_videofile(str(time.strftime("%Y%m%d_%H%M%S"))+"vid.mp4", fps=24)
-print(f"The Video Has Been Created Successfully!")
-
-#%%
-# from PIL import Image
-# formatter = {"PNG": "RGBA", "JPEG": "RGB"}
-# img = Image.open("20230204_172158.png")
-# rgbimg = Image.new(formatter.get(img.format, 'RGB'), img.size)
-# rgbimg.paste(img)
-# rgbimg.save("20230204_172158_edited.png", format=img.format)
+"""
