@@ -13,6 +13,18 @@ from PIL import Image
 
 change_settings({"IMAGEMAGICK_BINARY": r"C:\\Program Files\\ImageMagick-7.1.0-Q16-HDRI\\magick.exe"})
 
+def get_file_contents(filename):
+    """ Given a filename,
+        return the contents of that file
+    """
+    try:
+        with open(filename, 'r') as f:
+            # It's assumed our file contains a single line,
+            # with our API key
+            return f.read().strip()
+    except FileNotFoundError:
+        print("'%s' file not found" % filename)
+
 class reddit_grabber():
     def __init__(self):
         self.get_auth_token()
@@ -50,16 +62,29 @@ class reddit_grabber():
         engine.save_to_file(self.title, self.mp3name)
         engine.runAndWait()
 
+
+
+
+
     def get_image_from_dalle(self):
-        #openai.api_key = "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"
-        openai.api_key = "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"
-        openai.api_key = "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"
+
         openai.api_key = "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"
         openai.organization = "org-9kOJ7yh966xJKuo7UXKVfVzn"
+
+        openai.api_key = get_file_contents(r"C:\Users\Chris\Documents\credentials\oai_api_key.txt")
+        openai.organization = get_file_contents(r"C:\Users\Chris\Documents\credentials\oai_api_org.txt")
+
         openai.Model.list()
 
         regex_pattern = r"[,.]"
         self.prompt_title_part= re.split(regex_pattern, self.title)[0]
+
+        try:
+            if len(self.prompt_title_part) < 30:
+                self.prompt_title_part = self.title[0:40]
+        except:
+            pass
+
         print('requested for: '+str(self.prompt_title_part))
 
         response = openai.Image.create(
@@ -128,7 +153,7 @@ reddit_content = reddit_grabber()
 print(reddit_content.token)
 reddit_content.get_content_for_subreddit('TodayILearned')
 
-k = 7
+k = 4
 reddit_content.save_content_as_mp3_file(reddit_content.result['data']['children'][k]['data']['title'])
 reddit_content.linked_media_url = reddit_content.result['data']['children'][k]['data']['url_overridden_by_dest']
 
@@ -233,6 +258,42 @@ from moviepy.editor import TextClip
 print ( TextClip.list("font") )
 
 # %%
+
+import os
+
+import google_auth_oauthlib.flow
+import googleapiclient.discovery
+import googleapiclient.errors
+
+scopes = ["https://www.googleapis.com/auth/youtube.readonly"]
+
+def main():
+    # Disable OAuthlib's HTTPS verification when running locally.
+    # *DO NOT* leave this option enabled in production.
+    os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
+
+    api_service_name = "youtube"
+    api_version = "v3"
+    client_secrets_file = r"C:\Users\Chris\Documents\credentials\client_secret_122525985000-1i95p6eu3q6ijmjvgg7btarg5u84mdk6.apps.googleusercontent.com.json"
+
+    # Get credentials and create an API client
+    flow = google_auth_oauthlib.flow.InstalledAppFlow.from_client_secrets_file(
+        client_secrets_file, scopes)
+    credentials = flow.run_console()
+    youtube = googleapiclient.discovery.build(
+        api_service_name, api_version, credentials=credentials)
+
+    request = youtube.channels().list(
+        
+    )
+    response = request.execute()
+
+    print(response)
+
+if __name__ == "__main__":
+    main()
+
+
 #%%
 """
 import numpy as np
