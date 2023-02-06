@@ -10,6 +10,13 @@ from moviepy.editor import *
 from moviepy.config import change_settings
 import time 
 from PIL import Image
+from boto3 import Session
+from botocore.exceptions import BotoCoreError, ClientError
+from contextlib import closing
+import os
+import sys
+import subprocess
+from tempfile import gettempdir
 
 change_settings({"IMAGEMAGICK_BINARY": r"C:\\Program Files\\ImageMagick-7.1.0-Q16-HDRI\\magick.exe"})
 
@@ -46,7 +53,53 @@ class reddit_grabber():
                         headers=HEADERS)
         self.result = res.json()
 
-    def save_content_as_mp3_file(self,title):
+    def save_content_as_polly_mp3_file(self,title):
+        self.title = title 
+        self.title = self.title.replace("TIL", "Today I learned")
+        self.mp3name = str(time.strftime("%Y%m%d_%H%M%S"))+".mp3"
+
+        print(self.title)
+            
+        # Create a client using the credentials and region defined in the [adminuser]
+        # section of the AWS credentials file (~/.aws/credentials).
+        session = Session(profile_name="adminuser")
+        polly = session.client("polly")
+
+        try:
+            # Request speech synthesis
+            print("this should be the title")
+            print(self.title)
+            response = polly.synthesize_speech(Text=self.title, OutputFormat="mp3",
+                                                VoiceId="Joey")
+        except (BotoCoreError, ClientError) as error:
+            # The service returned an error, exit gracefully
+            print(error)
+            sys.exit(-1)
+
+        # Access the audio stream from the response
+        if "AudioStream" in response:
+            # Note: Closing the stream is important because the service throttles on the
+            # number of parallel connections. Here we are using contextlib.closing to
+            # ensure the close method of the stream object will be called automatically
+            # at the end of the with statement's scope.
+            with closing(response["AudioStream"]) as stream:
+                output = os.path.join(self.mp3name)
+
+                try:
+                    # Open a file for writing the output as a binary stream
+                    with open(output, "wb") as file:
+                        file.write(stream.read())
+                except IOError as error:
+                    # Could not write to file, exit gracefully
+                    print(error)
+                    sys.exit(-1)
+
+        else:
+            # The response didn't contain audio data, exit gracefully
+            print("Could not stream audio")
+            sys.exit(-1)
+
+    def save_content_as_pyttsx3_mp3_file(self,title):
 
         self.title = title 
         self.title = self.title.replace("TIL", "Today I learned")
@@ -54,17 +107,13 @@ class reddit_grabber():
         print(self.title)       
 
         engine = pyttsx3.init()
-        engine.setProperty("rate", 145)
+        engine.setProperty("rate", 160)
 
         voices = engine.getProperty('voices')       #getting details of current voice
         engine.setProperty('voice', voices[1].id)   #changing index, changes voices. 1 for female
         self.mp3name = str(time.strftime("%Y%m%d_%H%M%S"))+".mp3"
         engine.save_to_file(self.title, self.mp3name)
         engine.runAndWait()
-
-
-
-
 
     def get_image_from_dalle(self):
 
@@ -141,7 +190,11 @@ class reddit_grabber():
         # Save the final video to a file
         self.video_name = str(time.strftime("%Y%m%d_%H%M%S"))+"vid.mp4"
         with open(self.video_name+'.txt', 'w') as f:
-            f.write(reddit_content.linked_media_url)
+            f.write(reddit_content.linked_media_url+'\n'+reddit_content.title)     
+
+
+
+
         video = video.write_videofile(self.video_name, fps=24)
         print(f"The Video Has Been Created Successfully!")
 
@@ -153,12 +206,12 @@ reddit_content = reddit_grabber()
 print(reddit_content.token)
 reddit_content.get_content_for_subreddit('TodayILearned')
 
-k = 4
-reddit_content.save_content_as_mp3_file(reddit_content.result['data']['children'][k]['data']['title'])
+k = 6   
+reddit_content.save_content_as_polly_mp3_file(reddit_content.result['data']['children'][k]['data']['title'])
 reddit_content.linked_media_url = reddit_content.result['data']['children'][k]['data']['url_overridden_by_dest']
 
 reddit_content.get_image_from_dalle()
-#reddit_content.image_name = '20230205_010857.png'
+# reddit_content.image_name = '20230206_213456.png'
 
 reddit_content.create_video()
 
@@ -191,8 +244,12 @@ print(reddit_content.video_name)
 
 #%%
 reddit_content = reddit_grabber()
+reddit_content.title = "dali style: wooden penguin statue on a wooden rectangle base in an office"
+reddit_content.get_image_from_dalle()
 
-reddit_content.save_content_as_mp3_file("This is a test. Let's see how fast you talk now")
+
+
+# reddit_content.save_content_as_mp3_file("This is a test. Let's see how fast you talk now")
 
 
 #%%
@@ -258,40 +315,16 @@ from moviepy.editor import TextClip
 print ( TextClip.list("font") )
 
 # %%
+from gtts import gTTS
+import playsound
 
-import os
+para = "yo buddy"
+tts = gTTS(text=para, lang='de', slow=False)
+filename = "abc2.mp3"
+tts.save(filename)
+playsound.playsound(filename)
 
-import google_auth_oauthlib.flow
-import googleapiclient.discovery
-import googleapiclient.errors
 
-scopes = ["https://www.googleapis.com/auth/youtube.readonly"]
-
-def main():
-    # Disable OAuthlib's HTTPS verification when running locally.
-    # *DO NOT* leave this option enabled in production.
-    os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
-
-    api_service_name = "youtube"
-    api_version = "v3"
-    client_secrets_file = r"C:\Users\Chris\Documents\credentials\client_secret_122525985000-1i95p6eu3q6ijmjvgg7btarg5u84mdk6.apps.googleusercontent.com.json"
-
-    # Get credentials and create an API client
-    flow = google_auth_oauthlib.flow.InstalledAppFlow.from_client_secrets_file(
-        client_secrets_file, scopes)
-    credentials = flow.run_console()
-    youtube = googleapiclient.discovery.build(
-        api_service_name, api_version, credentials=credentials)
-
-    request = youtube.channels().list(
-        
-    )
-    response = request.execute()
-
-    print(response)
-
-if __name__ == "__main__":
-    main()
 
 
 #%%
