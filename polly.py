@@ -18,7 +18,7 @@ try:
     # Request speech synthesis
     prompt = "Today I learned Armadillos got their name from the Aztec word meaning turtle-rabbit"
     response = polly.synthesize_speech(Text=prompt, OutputFormat="mp3",
-                                        VoiceId="Emma")
+                                        VoiceId="Joey")
 except (BotoCoreError, ClientError) as error:
     # The service returned an error, exit gracefully
     print(error)

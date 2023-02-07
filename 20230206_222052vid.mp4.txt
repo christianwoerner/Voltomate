@@ -1,0 +1,2 @@
+https://en.wikipedia.org/wiki/Wind_chill
+Today I learned Many formulas exist for Wind Chill. The current one was only implemented in 2001. It is calculated for a bare face, facing the wind, while walking into it at 5.0 km/h/3.1 mph. It corrects the officially measured wind speed to the wind speed at face height, assuming the person is in an open field

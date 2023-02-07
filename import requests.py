@@ -36,7 +36,7 @@ class reddit_grabber():
     def __init__(self):
         self.get_auth_token()
         self.linked_media_url = None
-        
+        self.time_id = str(time.strftime("%Y%m%d_%H%M%S"))
     def get_auth_token(self):
         CLIENT_AUTH = requests.auth.HTTPBasicAuth('r5CgWuFB6P7XcZoiPZgLGA', 'UpY25X1_lKRqY9I9rJDkb-FCpt1mGw')
         POST_DATA = {"grant_type": "password", "username": "voltomate", "password": "Reddit003465!"}
@@ -53,23 +53,20 @@ class reddit_grabber():
                         headers=HEADERS)
         self.result = res.json()
 
-    def save_content_as_polly_mp3_file(self,title):
-        self.title = title 
-        self.title = self.title.replace("TIL", "Today I learned")
-        self.mp3name = str(time.strftime("%Y%m%d_%H%M%S"))+".mp3"
+    def save_polly_mp3_file(self,spoken_text,video_part):
 
-        print(self.title)
-            
-        # Create a client using the credentials and region defined in the [adminuser]
-        # section of the AWS credentials file (~/.aws/credentials).
-        session = Session(profile_name="adminuser")
+        if video_part == "intro":
+            self.mp3_intro_name = self.time_id+"_"+video_part+".mp3"
+        if video_part == "main":
+            self.mp3_main_name = self.time_id+"_"+video_part+".mp3"
+        if video_part == "outro":
+            self.mp3_outro_name = self.time_id+"_"+video_part+".mp3"
+
+        session = Session(profile_name="default")
         polly = session.client("polly")
 
         try:
-            # Request speech synthesis
-            print("this should be the title")
-            print(self.title)
-            response = polly.synthesize_speech(Text=self.title, OutputFormat="mp3",
+            response = polly.synthesize_speech(Text=spoken_text, OutputFormat="mp3",
                                                 VoiceId="Joey")
         except (BotoCoreError, ClientError) as error:
             # The service returned an error, exit gracefully
@@ -83,7 +80,7 @@ class reddit_grabber():
             # ensure the close method of the stream object will be called automatically
             # at the end of the with statement's scope.
             with closing(response["AudioStream"]) as stream:
-                output = os.path.join(self.mp3name)
+                output = os.path.join(self.time_id+"_"+video_part+".mp3")
 
                 try:
                     # Open a file for writing the output as a binary stream
@@ -145,10 +142,41 @@ class reddit_grabber():
         self.image_name = str(time.strftime("%Y%m%d_%H%M%S"))+".png"
         urllib.request.urlretrieve(image_url, self.image_name)
 
+    def create_intro(self):
+        # Load the audio file using moviepy
+        print("Extract voiceover and get duration...")
+        duration = 2
+
+        img = Image.open(self.image_name)
+        img_cropped = img.crop((224, 0, 800, 1024))
+        self.image_name_cropped = self.image_name+"cropped.png"
+        img_cropped.save(self.image_name_cropped, format=img.format)
+
+        audio_clip = AudioFileClip(self.mp3_intro_name)
+
+        print("Extract Image Clip and Set Duration...")
+        image_clip = ImageClip(self.image_name_cropped).set_duration(duration)
+        screensize = (576,800)
+
+        credits = (TextClip("Did you know?", color='red',stroke_color= 'white',
+                            stroke_width = 12,
+                font="Berlin-Sans-FB-Bold", kerning=-2, interline=-1, size = 
+        screensize, method='caption')
+            .set_duration(duration)
+            .set_start(0)
+            )
+        clip = image_clip.set_audio(audio_clip)
+
+        video = CompositeVideoClip([clip, credits])
+
+        self.intro_name = self.time_id+"_intro.mp4"
+        video = video.write_videofile(self.intro_name, fps=24)
+        print(f"The Video Has Been Created Successfully!")
+
     def create_video(self):
         # Load the audio file using moviepy
         print("Extract voiceover and get duration...")
-        audio_clip = AudioFileClip(self.mp3name)
+        audio_clip = AudioFileClip(self.mp3_main_name)
         audio_duration = audio_clip.duration
 
 
@@ -172,7 +200,7 @@ class reddit_grabber():
         print("Concatenate Audio, Image, Text to Create Final Clip...")
         clip = image_clip.set_audio(audio_clip)
 
-        screensize = (576,1024)
+        screensize = (576,900)
 
         credits = (TextClip(self.title, color='white',stroke_color= 'black',
                 font="Berlin-Sans-FB-Bold", kerning=-2, interline=-1, size = 
@@ -184,38 +212,46 @@ class reddit_grabber():
 
         video = CompositeVideoClip([clip, credits])
         # video = CompositeVideoClip([clip, text_clip.set_pos(('center', 'bottom'))])
-
-
-
         # Save the final video to a file
-        self.video_name = str(time.strftime("%Y%m%d_%H%M%S"))+"vid.mp4"
+        self.main_name = self.time_id+"_main.mp4"
+        video = video.write_videofile(self.main_name, fps=24)
+        print(f"The Video Has Been Created Successfully!")
+
+    def merge_video(self):
+        intro = VideoFileClip(self.intro_name)
+        main = VideoFileClip(self.intro_name)
+        final = concatenate_videoclips([intro, main])
+        self.video_name = self.time_id+"_video.mp4"
+
+        final = final.write_videofile(self.video_name, fps=24)
+
         with open(self.video_name+'.txt', 'w') as f:
             f.write(reddit_content.linked_media_url+'\n'+reddit_content.title)     
 
 
-
-
-        video = video.write_videofile(self.video_name, fps=24)
-        print(f"The Video Has Been Created Successfully!")
-
 #%%
-#
-# 
-# 
 reddit_content = reddit_grabber()
-print(reddit_content.token)
 reddit_content.get_content_for_subreddit('TodayILearned')
 
-k = 6   
-reddit_content.save_content_as_polly_mp3_file(reddit_content.result['data']['children'][k]['data']['title'])
+k = 0
+
+title = reddit_content.result['data']['children'][k]['data']['title']
+reddit_content.title = title 
+reddit_content.title = reddit_content.title.replace("TIL", "Today I learned")
+
+reddit_content.save_polly_mp3_file("Did you know?","intro")
+reddit_content.save_polly_mp3_file(reddit_content.title,"main")
+
+# reddit_content.get_image_from_dalle()
+reddit_content.image_name = '20230206_222456.png'
+
 reddit_content.linked_media_url = reddit_content.result['data']['children'][k]['data']['url_overridden_by_dest']
 
-reddit_content.get_image_from_dalle()
-# reddit_content.image_name = '20230206_213456.png'
-
+reddit_content.create_intro()
 reddit_content.create_video()
+reddit_content.merge_video()
 
-print(reddit_content.video_name)
+
 
 #%%
 #
@@ -227,6 +263,22 @@ reddit_content.get_content_for_subreddit('TodayILearned')
 for i in range(len(reddit_content.result['data']['children'])):
     print(i)
     print(reddit_content.result['data']['children'][i]['data']['title'])
+    #%%
+
+    
+reddit_content = reddit_grabber()
+print(reddit_content.token)
+reddit_content.get_content_for_subreddit('TodayILearned')
+
+k = 0
+
+# reddit_content.save_content_as_polly_mp3_file(reddit_content.result['data']['children'][k]['data']['title'])
+# reddit_content.save_content_as_polly_mp3_file("Today I learned about the London bus driver Albert Gunter. He found his bus on the London Bridge just when it was opening for a ship. He slammed the gas and jumped the gap! For this, he was given a bonus of £10 (about £290 in today’s money).")
+# reddit_content.linked_media_url = reddit_content.result['data']['children'][k]['data']['url_overridden_by_dest']
+
+# reddit_content.get_image_from_dalle()
+reddit_content.image_name = '20230206_222456.png'
+reddit_content.create_intro()
 #%%
 k = 7
 reddit_content.save_content_as_mp3_file(reddit_content.result['data']['children'][k]['data']['title'])
